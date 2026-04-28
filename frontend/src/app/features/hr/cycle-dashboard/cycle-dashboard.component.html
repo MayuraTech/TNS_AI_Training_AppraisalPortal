@@ -1,0 +1,170 @@
+<div class="cycle-dashboard">
+  <!-- Loading State -->
+  <div *ngIf="loading" class="loading-container">
+    <mat-spinner></mat-spinner>
+    <p>Loading dashboard...</p>
+  </div>
+
+  <!-- Error State -->
+  <div *ngIf="error && !loading" class="error-container">
+    <mat-icon color="warn">error</mat-icon>
+    <p>{{ error }}</p>
+    <button mat-raised-button color="primary" (click)="loadDashboard(); loadCycles()">
+      <mat-icon>refresh</mat-icon>
+      Retry
+    </button>
+  </div>
+
+  <!-- Dashboard Content -->
+  <div *ngIf="!loading && !error" class="dashboard-content">
+    <!-- Header -->
+    <div class="dashboard-header">
+      <h1>Appraisal Cycle Management</h1>
+      <button mat-raised-button color="primary" (click)="createCycle()">
+        <mat-icon>add</mat-icon>
+        Create New Cycle
+      </button>
+    </div>
+
+    <!-- Summary Metrics -->
+    <div *ngIf="dashboardData" class="metrics-section">
+      <div class="metrics-grid">
+        <mat-card class="metric-card">
+          <mat-card-content>
+            <div class="metric-icon"><mat-icon color="primary">people</mat-icon></div>
+            <div class="metric-value">{{ dashboardData.totalForms }}</div>
+            <div class="metric-label">Total Forms</div>
+          </mat-card-content>
+        </mat-card>
+
+        <mat-card class="metric-card">
+          <mat-card-content>
+            <div class="metric-icon"><mat-icon color="accent">pending_actions</mat-icon></div>
+            <div class="metric-value">{{ dashboardData.pendingEmployee }}</div>
+            <div class="metric-label">Not Started</div>
+          </mat-card-content>
+        </mat-card>
+
+        <mat-card class="metric-card">
+          <mat-card-content>
+            <div class="metric-icon"><mat-icon color="warn">rate_review</mat-icon></div>
+            <div class="metric-value">{{ dashboardData.pendingReview }}</div>
+            <div class="metric-label">Pending Reviews</div>
+          </mat-card-content>
+        </mat-card>
+
+        <mat-card class="metric-card">
+          <mat-card-content>
+            <div class="metric-icon"><mat-icon style="color:#4caf50;">check_circle</mat-icon></div>
+            <div class="metric-value">{{ dashboardData.completed }}</div>
+            <div class="metric-label">Completed</div>
+          </mat-card-content>
+        </mat-card>
+      </div>
+    </div>
+
+    <!-- No Data -->
+    <div *ngIf="!dashboardData" class="no-active-cycle">
+      <mat-card>
+        <mat-card-content>
+          <mat-icon>info</mat-icon>
+          <p>No dashboard data available. Create and trigger a cycle to begin.</p>
+        </mat-card-content>
+      </mat-card>
+    </div>
+
+    <!-- Department Progress -->
+    <div *ngIf="dashboardData?.departmentStats && dashboardData?.departmentStats!.length > 0" class="department-section">
+      <mat-card>
+        <mat-card-header>
+          <mat-card-title>Department-wise Progress</mat-card-title>
+        </mat-card-header>
+        <mat-card-content>
+          <table mat-table [dataSource]="dashboardData?.departmentStats || []" class="department-table">
+            <ng-container matColumnDef="department">
+              <th mat-header-cell *matHeaderCellDef>Department</th>
+              <td mat-cell *matCellDef="let dept">{{ dept.department }}</td>
+            </ng-container>
+
+            <ng-container matColumnDef="totalEmployees">
+              <th mat-header-cell *matHeaderCellDef>Total Forms</th>
+              <td mat-cell *matCellDef="let dept">{{ dept.totalForms }}</td>
+            </ng-container>
+
+            <ng-container matColumnDef="completedAppraisals">
+              <th mat-header-cell *matHeaderCellDef>Completed</th>
+              <td mat-cell *matCellDef="let dept">{{ dept.completedForms }}</td>
+            </ng-container>
+
+            <ng-container matColumnDef="completionPercentage">
+              <th mat-header-cell *matHeaderCellDef>Completion %</th>
+              <td mat-cell *matCellDef="let dept">
+                <mat-chip [color]="getCompletionColor(dept.completionPercentage)">
+                  {{ dept.completionPercentage | number:'1.0-0' }}%
+                </mat-chip>
+              </td>
+            </ng-container>
+
+            <tr mat-header-row *matHeaderRowDef="departmentColumns"></tr>
+            <tr mat-row *matRowDef="let row; columns: departmentColumns;"></tr>
+          </table>
+        </mat-card-content>
+      </mat-card>
+    </div>
+
+    <!-- Cycles List -->
+    <div class="cycles-section">
+      <mat-card>
+        <mat-card-header>
+          <mat-card-title>All Appraisal Cycles</mat-card-title>
+        </mat-card-header>
+        <mat-card-content>
+          <table mat-table [dataSource]="cycles" class="cycles-table">
+            <ng-container matColumnDef="name">
+              <th mat-header-cell *matHeaderCellDef>Cycle Name</th>
+              <td mat-cell *matCellDef="let cycle">{{ cycle.name }}</td>
+            </ng-container>
+
+            <ng-container matColumnDef="startDate">
+              <th mat-header-cell *matHeaderCellDef>Start Date</th>
+              <td mat-cell *matCellDef="let cycle">{{ formatDate(cycle.startDate) }}</td>
+            </ng-container>
+
+            <ng-container matColumnDef="endDate">
+              <th mat-header-cell *matHeaderCellDef>End Date</th>
+              <td mat-cell *matCellDef="let cycle">{{ formatDate(cycle.endDate) }}</td>
+            </ng-container>
+
+            <ng-container matColumnDef="status">
+              <th mat-header-cell *matHeaderCellDef>Status</th>
+              <td mat-cell *matCellDef="let cycle">
+                <mat-chip [color]="getStatusColor(cycle.status)">{{ cycle.status }}</mat-chip>
+              </td>
+            </ng-container>
+
+            <ng-container matColumnDef="actions">
+              <th mat-header-cell *matHeaderCellDef>Actions</th>
+              <td mat-cell *matCellDef="let cycle">
+                <button mat-icon-button matTooltip="View Details" (click)="viewCycle(cycle)">
+                  <mat-icon>visibility</mat-icon>
+                </button>
+                <button mat-icon-button matTooltip="Trigger Cycle" (click)="triggerCycle(cycle)"
+                        [disabled]="cycle.status !== 'DRAFT'">
+                  <mat-icon>play_arrow</mat-icon>
+                </button>
+              </td>
+            </ng-container>
+
+            <tr mat-header-row *matHeaderRowDef="cycleColumns"></tr>
+            <tr mat-row *matRowDef="let row; columns: cycleColumns;"></tr>
+          </table>
+
+          <div *ngIf="cycles.length === 0" class="empty-state">
+            <mat-icon>folder_open</mat-icon>
+            <p>No appraisal cycles found. Create your first cycle to get started.</p>
+          </div>
+        </mat-card-content>
+      </mat-card>
+    </div>
+  </div>
+</div>
